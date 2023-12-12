@@ -1,35 +1,26 @@
 from datetime import datetime, timedelta
 from typing import Annotated
-from . import crud, schemas, models
+import crud, schemas, models
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-from . database import SessionLocal, engine
+from database import SessionLocal, engine
+import os
 
 SECRET_KEY = "86d9d628a7e6a6992b1f39ad9db0c9fb8bc7e7df87afe4a77f8be6de817e5104"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-
-fake_users_db = {
-    "johndoe": {
-        "username": "johndoe",
-        "full_name": "John Doe",
-        "email": "johndoe@example.com",
-        "hashed_password": "$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW",
-        "disabled": False,
-    }
-}
-
-
+DATABASE_URL=os.getenv("DATABASE_URL","postgresql://user:password@localhost/dbname")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 app = FastAPI()
+models.Base.metadata.create_all(bind=engine)
 
 def get_db():
     db = SessionLocal()
@@ -45,12 +36,6 @@ def verify_password(plain_password, hashed_password):
 
 def get_password_hash(password):
     return pwd_context.hash(password)
-
-
-# def get_user(db, username: str):
-#     if username in db:
-#         user_dict = db[username]
-#         return UserInDB(**user_dict)
 
 
 def authenticate_user(username: str , password: str,db: Session  = Depends(get_db)):
@@ -96,8 +81,6 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)],db: Ses
 async def get_current_active_user(
     current_user: Annotated[models.User, Depends(get_current_user)]
 ):
-    if current_user.disabled:
-        raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
 
 
@@ -106,7 +89,7 @@ async def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: Session  = Depends(get_db)
 ):
-    user = authenticate_user(db, form_data.username, form_data.password)
+    user = authenticate_user(form_data.username, form_data.password,db)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -120,12 +103,6 @@ async def login_for_access_token(
     return {"access_token": access_token, "token_type": "bearer"}
 
 
-# @app.get("/users/me/", response_model=schemas.User)
-# async def read_users_me(
-#     current_user: Annotated[models.User, Depends(get_current_active_user)] #TODO check if model is being turned into chema
-# ):
-#     return current_user
-
 @app.post("/signup")
 async def signup(username: str, password: str,db: Session  = Depends(get_db)):
     hashed_password=get_password_hash(password)
@@ -138,8 +115,7 @@ async def signup(username: str, password: str,db: Session  = Depends(get_db)):
 @app.post("/addtask")
 async def add_task(current_user: Annotated[models.User, Depends(get_current_active_user)]
                    ,task: schemas.Task,db :Session= Depends(get_db)):
-    task.user=current_user
-    crud.create_task(db,task)
+    crud.create_task(db,task,current_user)
     return {"message": "Task added successfully"}
     
     
@@ -147,26 +123,18 @@ async def add_task(current_user: Annotated[models.User, Depends(get_current_acti
 @app.post("/rmtask")
 async def remove_task(current_user: Annotated[models.User, Depends(get_current_active_user)]
                    ,task: schemas.Task,db :Session= Depends(get_db)):
-    task.user=current_user
-    crud.rm_task(db,task)
+    crud.rm_task(db,task,current_user)
     return {"message":"Task deleted successfully"}
 
 @app.post("/updatetask")
 async def update_task(current_user: Annotated[models.User, Depends(get_current_active_user)]
                    ,task: schemas.Task,db :Session= Depends(get_db)):
-    task.user=current_user
-    crud.update_task(db,task)
+    crud.update_task(db,task,current_user)
     return {"message":"Task updated successfully"}
     
 
 @app.post("/changestattask")
 async def change_status_task(current_user: Annotated[models.User, Depends(get_current_active_user)]
-                   ,task: schemas.Task,db :Session= Depends(get_db)):
-    task.user=current_user
-    crud.change_task_stat(db,task)
+                   ,task: schemas.Task,new_stat: schemas.StatusEnum, db :Session= Depends(get_db)):
+    crud.change_task_stat(db,task,new_stat, current_user)
     return {"message" : "Task status changed successfully"}
-# @app.get("/users/me/items/")
-# async def read_own_items(
-#     current_user: Annotated[User, Depends(get_current_active_user)]
-# ):
-#     return [{"item_id": "Foo", "owner": current_user.username}]

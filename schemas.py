@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from enum import Enum
 
 
-class StatusEnum(Enum):
+class StatusEnum(str,Enum):
     done='Done.'
     in_progress= 'In progress.'
     completed= 'Completed.'
@@ -10,14 +10,13 @@ class StatusEnum(Enum):
 
 class User(BaseModel):
     username: str
-    disabled: bool | None = None
 
 
 
 class Task(BaseModel):
     title : str
     status : StatusEnum
-    user : User 
+    code : str
 
 
 
