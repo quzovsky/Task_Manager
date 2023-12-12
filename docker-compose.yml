@@ -1,0 +1,10 @@
+version: '1'
+services: 
+  task_manager:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - /path/on/host:/home/app/data

@@ -7,13 +7,11 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from database import SessionLocal, engine
-import os
 
 SECRET_KEY = "86d9d628a7e6a6992b1f39ad9db0c9fb8bc7e7df87afe4a77f8be6de817e5104"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-DATABASE_URL=os.getenv("DATABASE_URL","postgresql://user:password@localhost/dbname")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
